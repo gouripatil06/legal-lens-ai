@@ -79,19 +79,11 @@ export default function DocumentView() {
   useEffect(() => {
     const fetchDocument = () => {
       try {
-        console.log('🔍 [DOCUMENTS] Fetching document for ID:', params.id);
+
         const data = localStorage.getItem(`document_${params.id}`);
-        console.log('📄 [DOCUMENTS] Raw document data:', data);
         
         if (data) {
           const parsed = JSON.parse(data);
-          console.log('✅ [DOCUMENTS] Parsed document:', parsed);
-          console.log('🔍 [DOCUMENTS] Analysis data:', parsed.analysis);
-          console.log('🔍 [DOCUMENTS] Executive summary:', parsed.analysis?.executiveSummary);
-          console.log('🔍 [DOCUMENTS] Parties involved type:', typeof parsed.analysis?.executiveSummary?.partiesInvolved, 'value:', parsed.analysis?.executiveSummary?.partiesInvolved);
-          console.log('🔍 [DOCUMENTS] Key entities type:', typeof parsed.analysis?.keyEntities, 'value:', parsed.analysis?.keyEntities);
-          console.log('🔍 [DOCUMENTS] Risk factors type:', typeof parsed.analysis?.riskAssessment?.riskFactors, 'value:', parsed.analysis?.riskAssessment?.riskFactors);
-          
           setDocument({
             id: params.id as string,
             fileName: parsed.fileName,
@@ -100,7 +92,6 @@ export default function DocumentView() {
             createdAt: new Date(parsed.createdAt),
           });
         } else {
-          console.log('❌ [DOCUMENTS] No document data found');
         }
       } catch (error) {
         console.error('❌ [DOCUMENTS] Error fetching document:', error);
@@ -201,11 +192,6 @@ export default function DocumentView() {
       </div>
     );
   }
-
-  // Add render logging
-  console.log('🎨 [DOCUMENTS] Rendering document page');
-  console.log('🔍 [DOCUMENTS] Document state:', document);
-  console.log('🔍 [DOCUMENTS] Loading state:', loading);
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">

@@ -1,7 +1,22 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// Simple API key rotation for chat
+const API_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY1,
+  process.env.GEMINI_API_KEY2,
+  process.env.GEMINI_API_KEY3,
+].filter(Boolean);
+
+let currentKeyIndex = 0;
+
+function getNextKey(): string {
+  const key = API_KEYS[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+  console.log(`🔑 Chat using API key ${currentKeyIndex}/${API_KEYS.length}`);
+  return key || '';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,21 +38,39 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    });
+    // Try with key rotation
+    let text = '';
+    let response: any;
+    
+    for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+      try {
+        const genAI = new GoogleGenerativeAI(getNextKey());
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-1.5-flash",
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
+          }
+        });
 
-    // Generate response
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+        const result = await model.generateContent(prompt);
+        response = await result.response;
+        text = response.text();
+        break; // Success, exit the retry loop
+      } catch (error: any) {
+        if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
+          console.log(`⚠️ Chat rate limit hit, trying next key...`);
+          continue;
+        }
+        throw error; // Re-throw if it's not a rate limit error
+      }
+    }
+    
+    if (!text) {
+      throw new Error('All API keys exhausted for chat');
+    }
 
     const endTime = Date.now();
     const responseTime = endTime - startTime;

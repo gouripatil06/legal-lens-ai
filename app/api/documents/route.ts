@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUserId } from '@/lib/clerk-server';
-import { getUserDocuments } from '@/lib/google-cloud/firestore';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,18 +9,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user documents
-    const documents = await getUserDocuments(userId);
-
+    // Since we're using localStorage, this API route is not needed
+    // Documents are managed client-side
     return NextResponse.json({
       success: true,
-      documents: documents.map(doc => ({
-        id: doc.id,
-        fileName: doc.fileName,
-        summary: doc.summary,
-        risks: doc.risks,
-        createdAt: doc.createdAt,
-      })),
+      documents: [],
+      message: 'Documents are managed client-side using localStorage'
     });
 
   } catch (error) {

@@ -22,7 +22,6 @@
     "@types/uuid": "^11.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "firebase-admin": "^13.5.0",
     "formidable": "^3.5.4",
     "framer-motion": "^11.11.17",
     "gsap": "^3.13.0",

@@ -249,10 +249,6 @@ export default function ChatPage() {
 
   // Add error boundary for rendering
   try {
-    console.log('🎨 [CHAT] Rendering chat page with context:', documentContext);
-    console.log('🔍 [CHAT] About to render keyEntities:', documentContext.keyEntities);
-    console.log('🔍 [CHAT] About to render riskFactors:', documentContext.riskFactors);
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}

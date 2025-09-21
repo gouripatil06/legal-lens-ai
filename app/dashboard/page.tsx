@@ -156,13 +156,7 @@ export default function Dashboard() {
             // Create document context for chat functionality
             const extractedText = result.ocrResult?.text || '';
             if (extractedText) {
-              console.log('🔍 [DASHBOARD] Creating document context for chat');
-              console.log('📊 [DASHBOARD] Analysis result:', result.analysis);
-              console.log('🔍 [DASHBOARD] keyEntities type:', typeof result.analysis?.keyEntities, 'value:', result.analysis?.keyEntities);
-              console.log('🔍 [DASHBOARD] riskFactors type:', typeof result.analysis?.riskAssessment?.riskFactors, 'value:', result.analysis?.riskAssessment?.riskFactors);
-              
               const chunks = chunkDocumentText(extractedText, result.fileName);
-              console.log('📄 [DASHBOARD] Created chunks:', chunks.length);
               
               const documentContext: DocumentContext = {
                 documentId: result.documentId,
@@ -180,22 +174,21 @@ export default function Dashboard() {
                 lastUpdated: new Date().toISOString()
               };
               
-              console.log('✅ [DASHBOARD] Document context created:', documentContext);
-              console.log('🔍 [DASHBOARD] Final keyEntities:', documentContext.keyEntities);
-              console.log('🔍 [DASHBOARD] Final riskFactors:', documentContext.riskFactors);
               
               // Store document context
               storeDocumentContext(result.documentId, documentContext);
-              console.log('💾 [DASHBOARD] Document context stored');
               
               // Create chat session
               createChatSession(result.documentId, result.fileName);
-              console.log('💬 [DASHBOARD] Chat session created');
             }
             
             setUploadProgress(100);
             await fetchDocuments();
-            router.push(`/documents/${result.documentId}`);
+            
+            // Small delay to ensure document context is fully stored
+            setTimeout(() => {
+              router.push(`/documents/${result.documentId}`);
+            }, 500);
             
           } catch (error) {
             console.error('Analysis error:', error);

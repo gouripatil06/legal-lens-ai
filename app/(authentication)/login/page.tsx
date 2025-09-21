@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SignIn, SignUp, useAuth } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 
-const LoginPage = () => {
+const LoginPageContent = () => {
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useAuth();
   const { theme } = useTheme();
@@ -198,6 +198,18 @@ const LoginPage = () => {
         &copy; {new Date().getFullYear()} Hack2Skill. All rights reserved.
       </p>
     </div>
+  );
+};
+
+const LoginPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 };
 

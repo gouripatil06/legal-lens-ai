@@ -60,7 +60,6 @@ export default function DocumentsPage() {
       try {
         // Check if migration is needed and run it
         if (needsMigration()) {
-          console.log('🔄 [DOCUMENTS] Migration needed, running migration...');
           migrateExistingDocuments();
         }
         

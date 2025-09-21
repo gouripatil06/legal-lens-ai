@@ -13,12 +13,10 @@ import {
  * Migrate existing documents to support chat functionality
  */
 export function migrateExistingDocuments(): void {
-  console.log('🔄 [MIGRATION] Starting migration of existing documents...');
   
   try {
     // Get all existing documents from localStorage
     const existingDocs = JSON.parse(localStorage.getItem('legalLensDocuments') || '[]');
-    console.log(`📄 [MIGRATION] Found ${existingDocs.length} existing documents`);
     
     let migratedCount = 0;
     
@@ -28,32 +26,27 @@ export function migrateExistingDocuments(): void {
       // Check if document context already exists
       const existingContext = localStorage.getItem(`document_context_${documentId}`);
       if (existingContext) {
-        console.log(`⏭️ [MIGRATION] Document ${documentId} already has chat context, skipping`);
         return;
       }
       
       // Get the individual document data
       const documentData = localStorage.getItem(`document_${documentId}`);
       if (!documentData) {
-        console.log(`❌ [MIGRATION] No document data found for ${documentId}, skipping`);
         return;
       }
       
       try {
         const parsedDoc = JSON.parse(documentData);
-        console.log(`🔄 [MIGRATION] Migrating document: ${parsedDoc.fileName}`);
         
         // Extract text from OCR result
         const extractedText = parsedDoc.ocrResult?.text || parsedDoc.ocrResult?.originalText || '';
         
         if (!extractedText) {
-          console.log(`❌ [MIGRATION] No text found for ${documentId}, skipping`);
           return;
         }
         
         // Create chunks
         const chunks = chunkDocumentText(extractedText, parsedDoc.fileName);
-        console.log(`📄 [MIGRATION] Created ${chunks.length} chunks for ${parsedDoc.fileName}`);
         
         // Create document context
         const documentContext: DocumentContext = {
@@ -74,11 +67,11 @@ export function migrateExistingDocuments(): void {
         
         // Store document context
         storeDocumentContext(documentId, documentContext);
-        console.log(`💾 [MIGRATION] Stored document context for ${parsedDoc.fileName}`);
+        
         
         // Create chat session
         createChatSession(documentId, parsedDoc.fileName);
-        console.log(`💬 [MIGRATION] Created chat session for ${parsedDoc.fileName}`);
+        
         
         migratedCount++;
         
@@ -87,7 +80,7 @@ export function migrateExistingDocuments(): void {
       }
     });
     
-    console.log(`✅ [MIGRATION] Migration completed! Migrated ${migratedCount} documents`);
+    
     
   } catch (error) {
     console.error('❌ [MIGRATION] Error during migration:', error);

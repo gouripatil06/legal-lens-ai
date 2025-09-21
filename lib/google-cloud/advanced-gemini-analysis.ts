@@ -1,6 +1,41 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Simple API key rotation
+const API_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY1,
+  process.env.GEMINI_API_KEY2,
+  process.env.GEMINI_API_KEY3,
+].filter(Boolean);
+
+let currentKeyIndex = 0;
+
+function getNextKey(): string {
+  const key = API_KEYS[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+  console.log(`🔑 Using API key ${currentKeyIndex}/${API_KEYS.length}`);
+  return key || '';
+}
+
+// Simple retry with key rotation
+async function callGeminiWithRetry(prompt: string): Promise<any> {
+  for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+    try {
+      const genAI = new GoogleGenerativeAI(getNextKey());
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return parseGeminiJSON(response.text());
+    } catch (error: any) {
+      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
+        console.log(`⚠️ Rate limit hit, trying next key...`);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('All API keys exhausted');
+}
 
 // Helper function to parse JSON from Gemini response
 function parseGeminiJSON(text: string): any {
@@ -143,10 +178,7 @@ export async function performAdvancedDocumentAnalysis(
   const startTime = Date.now();
   
   try {
-    // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-    // Multiple specialized analysis calls
+    // Multiple specialized analysis calls with key rotation
     const [
       executiveSummary,
       contractTerms,
@@ -155,12 +187,12 @@ export async function performAdvancedDocumentAnalysis(
       financialAnalysis,
       humanExplanation
     ] = await Promise.all([
-      generateExecutiveSummary(model, extractedText, fileName),
-      analyzeContractTerms(model, extractedText),
-      assessRisks(model, extractedText),
-      checkCompliance(model, extractedText),
-      analyzeFinancials(model, extractedText),
-      generateHumanExplanation(model, extractedText)
+      generateExecutiveSummary(extractedText, fileName),
+      analyzeContractTerms(extractedText),
+      assessRisks(extractedText),
+      checkCompliance(extractedText),
+      analyzeFinancials(extractedText),
+      generateHumanExplanation(extractedText)
     ]);
     
     const processingTime = Date.now() - startTime;
@@ -189,7 +221,7 @@ export async function performAdvancedDocumentAnalysis(
   }
 }
 
-async function generateExecutiveSummary(model: any, text: string, fileName: string) {
+async function generateExecutiveSummary(text: string, fileName: string) {
   const prompt = `
 Analyze this document and provide a comprehensive executive summary. First, determine if this is a legal document or contract. If it's NOT a legal document, provide appropriate warnings.
 
@@ -215,12 +247,10 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
-async function analyzeContractTerms(model: any, text: string) {
+async function analyzeContractTerms(text: string) {
   const prompt = `
 Analyze the contract terms in this document. Extract key contractual elements.
 
@@ -236,12 +266,10 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
-async function assessRisks(model: any, text: string) {
+async function assessRisks(text: string) {
   const prompt = `
 Perform a comprehensive risk assessment of this document. Identify financial, legal, and operational risks.
 
@@ -280,12 +308,10 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
-async function checkCompliance(model: any, text: string) {
+async function checkCompliance(text: string) {
   const prompt = `
 Check this document for regulatory compliance and industry standards adherence.
 
@@ -311,12 +337,10 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
-async function analyzeFinancials(model: any, text: string) {
+async function analyzeFinancials(text: string) {
   const prompt = `
 Analyze the financial aspects of this document. Extract monetary values, payment terms, and financial implications.
 
@@ -347,12 +371,10 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
-async function generateHumanExplanation(model: any, text: string) {
+async function generateHumanExplanation(text: string) {
   const prompt = `
 Provide a human-friendly explanation of this document. Make it accessible to non-legal professionals.
 
@@ -383,9 +405,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  return parseGeminiJSON(response.text());
+  return await callGeminiWithRetry(prompt);
 }
 
 function calculateOverallConfidence(text: string): number {
