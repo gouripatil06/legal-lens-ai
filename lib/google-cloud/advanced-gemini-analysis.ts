@@ -1,6 +1,23 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
-// Simple API key rotation
+// Check which AI provider to use
+const USE_OPENAI = process.env.USE_OPEN_AI === 'true' || process.env.USE_OPENAI === 'true';
+
+// OpenAI setup (single API key)
+let openaiClient: OpenAI | null = null;
+if (USE_OPENAI) {
+  if (process.env.OPEN_AI_API_KEY) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPEN_AI_API_KEY,
+    });
+    console.log('🤖 Using OpenAI (GPT-4o Mini) for document analysis');
+  } else {
+    console.warn('⚠️ USE_OPEN_AI is true but OPEN_AI_API_KEY is not set. Falling back to Gemini.');
+  }
+}
+
+// Gemini setup (multiple API keys for rotation)
 const API_KEYS = [
   process.env.GEMINI_API_KEY,
   process.env.GEMINI_API_KEY1,
@@ -13,11 +30,52 @@ let currentKeyIndex = 0;
 function getNextKey(): string {
   const key = API_KEYS[currentKeyIndex];
   currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-  console.log(`🔑 Using API key ${currentKeyIndex}/${API_KEYS.length}`);
+  console.log(`🔑 Using Gemini API key ${currentKeyIndex}/${API_KEYS.length}`);
   return key || '';
 }
 
-// Simple retry with key rotation
+// Unified AI call function - switches between OpenAI and Gemini
+async function callAIWithRetry(prompt: string): Promise<any> {
+  if (USE_OPENAI && openaiClient) {
+    return await callOpenAI(prompt);
+  } else {
+    if (USE_OPENAI && !openaiClient) {
+      throw new Error('OPEN_AI_API_KEY is required when USE_OPEN_AI is true');
+    }
+    return await callGeminiWithRetry(prompt);
+  }
+}
+
+// OpenAI call function
+async function callOpenAI(prompt: string): Promise<any> {
+  if (!openaiClient) {
+    throw new Error('OpenAI client not initialized');
+  }
+
+  try {
+    console.log('🤖 Calling OpenAI GPT-4o Mini...');
+    const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 2048,
+      response_format: { type: 'json_object' },
+    });
+
+    const text = response.choices[0]?.message?.content || '';
+    return parseJSONResponse(text);
+  } catch (error: any) {
+    console.error('OpenAI API error:', error);
+    throw new Error(`OpenAI API error: ${error.message || 'Unknown error'}`);
+  }
+}
+
+// Gemini call function with key rotation
 async function callGeminiWithRetry(prompt: string): Promise<any> {
   for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
     try {
@@ -25,7 +83,7 @@ async function callGeminiWithRetry(prompt: string): Promise<any> {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      return parseGeminiJSON(response.text());
+      return parseJSONResponse(response.text());
     } catch (error: any) {
       if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
         console.log(`⚠️ Rate limit hit, trying next key...`);
@@ -37,8 +95,8 @@ async function callGeminiWithRetry(prompt: string): Promise<any> {
   throw new Error('All API keys exhausted');
 }
 
-// Helper function to parse JSON from Gemini response
-function parseGeminiJSON(text: string): any {
+// Helper function to parse JSON from AI response (works for both OpenAI and Gemini)
+function parseJSONResponse(text: string): any {
   // Extract JSON from markdown code blocks if present
   let jsonText = text;
   if (text.includes('```json')) {
@@ -51,6 +109,12 @@ function parseGeminiJSON(text: string): any {
     if (jsonMatch) {
       jsonText = jsonMatch[1];
     }
+  }
+  
+  // Try to find JSON object in the text
+  const jsonObjectMatch = jsonText.match(/\{[\s\S]*\}/);
+  if (jsonObjectMatch) {
+    jsonText = jsonObjectMatch[0];
   }
   
   return JSON.parse(jsonText.trim());
@@ -247,7 +311,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 async function analyzeContractTerms(text: string) {
@@ -266,7 +330,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 async function assessRisks(text: string) {
@@ -308,7 +372,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 async function checkCompliance(text: string) {
@@ -337,7 +401,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 async function analyzeFinancials(text: string) {
@@ -371,7 +435,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 async function generateHumanExplanation(text: string) {
@@ -405,7 +469,7 @@ Provide ONLY a valid JSON response (no markdown, no explanations, just the JSON 
 }
 `;
 
-  return await callGeminiWithRetry(prompt);
+  return await callAIWithRetry(prompt);
 }
 
 function calculateOverallConfidence(text: string): number {
